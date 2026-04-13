@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Slideshow</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #000;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+
+    #slideshow {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .slide-img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      opacity: 0;
+      transition: opacity 0.6s ease-in-out;
+    }
+
+    .slide-img.visible {
+      opacity: 1;
+    }
+
+    #controls {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 20px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.75));
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      z-index: 100;
+    }
+
+    #controls.visible {
+      opacity: 1;
+    }
+
+    .ctrl-btn {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      color: #fff;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+
+    .ctrl-btn:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    #progress-wrap {
+      flex: 1;
+      height: 4px;
+      background: rgba(255,255,255,0.25);
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    #progress-fill {
+      height: 100%;
+      background: #fff;
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    #counter {
+      color: rgba(255,255,255,0.85);
+      font-size: 13px;
+      white-space: nowrap;
+      min-width: 60px;
+      text-align: right;
+    }
+
+    #no-images {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: rgba(255,255,255,0.6);
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    #no-images h2 {
+      font-size: 20px;
+      margin-bottom: 12px;
+      color: #fff;
+    }
+
+    #no-images code {
+      background: rgba(255,255,255,0.1);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+
+<div id="slideshow">
+  <img class="slide-img" id="img-a" src="" alt="">
+  <img class="slide-img" id="img-b" src="" alt="">
+</div>
+
+<div id="controls">
+  <button class="ctrl-btn" id="btn-pause" title="一時停止/再開 (Space)">⏸</button>
+  <div id="progress-wrap">
+    <div id="progress-fill"></div>
+  </div>
+  <span id="counter">- / -</span>
+  <button class="ctrl-btn" id="btn-fullscreen" title="フルスクリーン">⛶</button>
+</div>
+
+<div id="no-images" style="display:none">
+  <h2>画像がありません</h2>
+  <p><code>images/</code> フォルダに画像を追加し、<br>
+  <code>generate-list.bat</code> を実行してから再読み込みしてください。</p>
+</div>
+
+<script src="images-list.js"></script>
+<script>
+  (function () {
+    const images = (typeof IMAGES !== 'undefined') ? IMAGES : [];
+
+    if (images.length === 0) {
+      document.getElementById('no-images').style.display = 'block';
+      return;
+    }
+
+    const imgA = document.getElementById('img-a');
+    const imgB = document.getElementById('img-b');
+    const btnPause = document.getElementById('btn-pause');
+    const btnFullscreen = document.getElementById('btn-fullscreen');
+    const progressFill = document.getElementById('progress-fill');
+    const counter = document.getElementById('counter');
+    const controls = document.getElementById('controls');
+
+    let current = 0;
+    let paused = false;
+    let timer = null;
+    let activeImg = imgA;
+    let inactiveImg = imgB;
+    let controlsTimeout = null;
+    const INTERVAL = 3000;
+
+    function preload(index) {
+      const img = new Image();
+      img.src = images[index];
+    }
+
+    function showImage(index) {
+      current = ((index % images.length) + images.length) % images.length;
+
+      inactiveImg.src = images[current];
+      inactiveImg.onload = function () {
+        inactiveImg.classList.add('visible');
+        activeImg.classList.remove('visible');
+
+        const tmp = activeImg;
+        activeImg = inactiveImg;
+        inactiveImg = tmp;
+
+        updateUI();
+
+        // 次の画像をプリロード
+        preload((current + 1) % images.length);
+      };
+    }
+
+    function updateUI() {
+      counter.textContent = (current + 1) + ' / ' + images.length;
+      progressFill.style.width = ((current + 1) / images.length * 100) + '%';
+    }
+
+    function next() {
+      showImage(current + 1);
+    }
+
+    function startTimer() {
+      clearInterval(timer);
+      timer = setInterval(next, INTERVAL);
+    }
+
+    function pause() {
+      paused = true;
+      clearInterval(timer);
+      btnPause.textContent = '▶';
+    }
+
+    function resume() {
+      paused = false;
+      startTimer();
+      btnPause.textContent = '⏸';
+    }
+
+    function togglePause() {
+      if (paused) resume(); else pause();
+    }
+
+    // コントロールの表示/非表示
+    function showControls() {
+      controls.classList.add('visible');
+      clearTimeout(controlsTimeout);
+      controlsTimeout = setTimeout(function () {
+        if (!paused) controls.classList.remove('visible');
+      }, 2500);
+    }
+
+    document.addEventListener('mousemove', showControls);
+    document.addEventListener('touchstart', showControls);
+
+    btnPause.addEventListener('click', togglePause);
+
+    btnFullscreen.addEventListener('click', function () {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePause();
+      }
+    });
+
+    // 進捗バークリックで画像移動
+    document.getElementById('progress-wrap').addEventListener('click', function (e) {
+      const ratio = e.offsetX / this.offsetWidth;
+      const idx = Math.floor(ratio * images.length);
+      clearInterval(timer);
+      showImage(idx);
+      if (!paused) startTimer();
+    });
+
+    // 初期表示
+    imgA.src = images[0];
+    imgA.onload = function () {
+      imgA.classList.add('visible');
+      activeImg = imgA;
+      updateUI();
+      preload(1);
+      startTimer();
+    };
+
+    // フルスクリーン変化時にボタン更新
+    document.addEventListener('fullscreenchange', function () {
+      btnFullscreen.textContent = document.fullscreenElement ? '✕' : '⛶';
+    });
+
+  })();
+</script>
+</body>
+</html>
