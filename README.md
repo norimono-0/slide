@@ -17,7 +17,7 @@
 2. ターミナルで `sh generate-list.sh` を実行（`images-list.js` が自動生成される）
 3. `index.html` をブラウザで開いて確認
 
-> `images/` は `.gitignore` に含まれており、Git 管理対象外です。
+> `images/*` は `.gitignore` に含まれており、Git 管理対象外です。
 
 ### 操作方法
 
